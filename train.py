@@ -15,7 +15,7 @@ from loss import LossBinary, ContrastiveLoss
 from metrics import AllInOneMeter
 from models import UNet16
 from validation import validation_binary
-
+import numpy as np
 def save_weights(model, model_path, ep, step, train_metrics, valid_metrics):
     torch.save({'model': model.state_dict(), 'epoch': ep, 'step': step, 'valid_loss': valid_metrics['loss1'], 'train_loss': train_metrics['loss1']},
                str(model_path)
@@ -44,9 +44,9 @@ def main():
     arg('--pretrain-epochs', type=int, default=100)
     arg('--train-epochs', type=int, default=100)
     arg('--train-test-split-file', type=str, default='./data/train_test_id.pickle', help='train test split file path')
-    arg('--pretrain-image-path', type=str, default= 'e:/diploma/ham10000/', help='train test split file path')
-    arg('--pretrain-mask-image-path', type=str, default='e:/diploma/ham_clusters_20/lab/20/', help="images path for pretraining")
-    arg('--image-path', type=str, default='data/task2_h5/', help="h5 images path for training")
+    arg('--pretrain-image-path', type=str, default= '/mnt/tank/scratch/vkozyrev/ham10000/', help='train test split file path')
+    arg('--pretrain-mask-image-path', type=str, default='/mnt/tank/scratch/vkozyrev/ham_clusters_20/lab/20/', help="images path for pretraining")
+    arg('--image-path', type=str, default='/mnt/tank/scratch/vkozyrev/task2_h5/', help="h5 images path for training")
     arg('--batch-size', type=int, default=1, help="n batches")
     arg('--workers', type=int, default=1, help="n workers")
     arg('--cuda-driver', type=int, default=1, help="cuda driver")
@@ -83,6 +83,7 @@ def main():
     print('Start pretraining')
     wandb.watch(model)
     for epoch in range(epoch, args.pretrain_epochs + 1):
+        losses = []
         model.train()
         start_time = time.time()
         for ind, (id, image_original, image_transformed, mask_original, mask_transformed) in enumerate(pretrain_loader):
@@ -93,16 +94,17 @@ def main():
             train_image_transformed.to(device)
             original_result, _ = model(train_image_original)
             transformed_result, _ = model(train_image_transformed)
-            loss = criterion(original_result, transformed_result, mask_original, mask_transformed)
+            loss = (criterion(original_result, transformed_result, mask_original, mask_transformed))
+            losses.append(loss)
+            print(
+                f'epoch={epoch:3d},iter={ind:3d}, loss={loss:.4g}')
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            if ind == 0: break
-
-        print(loss)
-        wandb.log({"pretrain/loss" : loss})
+        avg_loss = np.mean(losses)
+        wandb.log({"pretrain/loss": avg_loss})
         epoch_time = time.time() - start_time
-        scheduler.step(loss)
+        scheduler.step(avg_loss)
     print("Pretraining ended")
     epoch = 1
     ## get train_test_id
@@ -184,7 +186,7 @@ def main():
         train_metrics['mask'] = train_mask.data
         train_metrics['prob'] = train_prob.data
         valid_metrics = valid_fn(model, criterion, valid_loader, device, num_classes)
-        
+
         wandb.log({"loss/loss": valid_metrics["loss"], "loss/loss1": valid_metrics["loss1"],
                    "loss/loss2": valid_metrics["loss2"],
                    "jaccard_mean/jaccard_mean": valid_metrics["jaccard"],

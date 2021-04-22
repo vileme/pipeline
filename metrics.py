@@ -26,7 +26,6 @@ class AllInOneMeter(object):
         self.loss = []
         self.jaccard = []
         # self.nbatch = 0
-        self.epsilon = 1e-15
         self.intersection = torch.zeros([5], dtype=torch.float, device='cuda:0')
         self.union = torch.zeros([5], dtype=torch.float, device='cuda:0')
         self.reset()
@@ -75,7 +74,7 @@ class AllInOneMeter(object):
         self.union += y_true.sum(dim=-2).sum(dim=-1).sum(dim=0) + y_pred.sum(dim=-2).sum(dim=-1).sum(dim=0)
 
     def value(self):
-        jaccard_array = (self.intersection / (self.union - self.intersection + self.epsilon))
+        jaccard_array = (self.intersection / (self.union - self.intersection))
         # jaccard_array = jaccard_array.data.cpu().numpy()
         jaccard = jaccard_array.mean()
         metrics = {'out1auc1': self.out1auc1.value()[0], 'out1auc2': self.out1auc2.value()[0],
@@ -90,6 +89,4 @@ class AllInOneMeter(object):
                    'jaccard3': jaccard_array[2].item(), 'jaccard4': jaccard_array[3].item(),
                    'jaccard5': jaccard_array[4].item(),
                    }
-        for mkey in metrics:
-            metrics[mkey] = round(metrics[mkey], 4)
         return metrics
