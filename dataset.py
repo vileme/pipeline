@@ -61,6 +61,7 @@ class PretrainDataset(Dataset):
         shear = random.uniform(0, 0)
 
         image = TF.affine(image, angle, translate, scale, shear)
+        mask = TF.affine(mask, angle, translate, scale, shear)
 
         image = TF.adjust_brightness(image, brightness_factor=random.uniform(0.8, 1.2))
 
