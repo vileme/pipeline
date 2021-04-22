@@ -49,7 +49,6 @@ class ContrastiveLoss:
                  mask_transformed):
         H = original_result.size()[2]
         W = original_result.size()[3]
-        print(H, W)
         batches = original_result.size()[0]
         loss = []
         total_pixels = W * H
