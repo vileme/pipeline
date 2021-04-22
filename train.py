@@ -3,6 +3,7 @@ import pickle
 import time
 import pandas as pd
 import torch
+import wandb
 from torch import nn
 from torch.backends import cudnn
 from torch.optim import Adam
@@ -52,6 +53,11 @@ def main():
     arg('--lr', type=float, default=0.001, help="lr")
     args = parser.parse_args()
 
+    wandb.init(project="pipeline")
+    wandb.run.name = f"pipeline lr = {args.lr}\n pretrain epochs = {args.pretrain_epochs}\ntrain epochs = {args.train_epochs}"
+    wandb.run.save()
+
+
     cudnn.benchmark = True
     device = torch.device(f'cuda:{args.cuda_driver}' if torch.cuda.is_available() else 'cpu')
 
@@ -75,6 +81,7 @@ def main():
     scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.8, patience=5, verbose=True)
     print(model)
     print('Start pretraining')
+    wandb.watch(model)
     for epoch in range(epoch, args.pretrain_epochs + 1):
         model.train()
         start_time = time.time()
@@ -91,7 +98,9 @@ def main():
             loss.backward()
             optimizer.step()
             if ind == 0: break
+
         print(loss)
+        wandb.log({"pretrain/loss" : loss})
         epoch_time = time.time() - start_time
         scheduler.step(loss)
     print("Pretraining ended")
@@ -175,8 +184,15 @@ def main():
         train_metrics['mask'] = train_mask.data
         train_metrics['prob'] = train_prob.data
         valid_metrics = valid_fn(model, criterion, valid_loader, device, num_classes)
-        valid_loss = valid_metrics['loss1']
-        valid_jaccard = valid_metrics['jaccard']
+        
+        wandb.log({"loss/loss": valid_metrics["loss"], "loss/loss1": valid_metrics["loss1"],
+                   "loss/loss2": valid_metrics["loss2"],
+                   "jaccard_mean/jaccard_mean": valid_metrics["jaccard"],
+                   "jaccard_class/jaccard_pigment_network": valid_metrics["jaccard1"],
+                   "jaccard_class/jaccard_negative_network": valid_metrics["jaccard2"],
+                   "jaccard_class/jaccard_streaks": valid_metrics["jaccard3"],
+                   "jaccard_class/jaccard_milia_like_cyst": valid_metrics["jaccard4"],
+                   "jaccard_class/jaccard_globules": valid_metrics["jaccard5"]})
         scheduler.step(valid_metrics['loss1'])
 
 if __name__ == '__main__':
