@@ -87,7 +87,7 @@ def main():
         model.train()
         start_time = time.time()
         for ind, (id, image_original, image_transformed, mask_original, mask_transformed) in enumerate(pretrain_loader):
-            criterion = ContrastiveLoss(args.t)
+            criterion = ContrastiveLoss(args.t, device)
             train_image_original = image_original.permute(0, 3, 1, 2)
             train_image_transformed = image_transformed.permute(0, 3, 1, 2)
             train_image_original.to(device)

@@ -42,8 +42,9 @@ def count_labels(class_of_p, mask_transformed):
 
 
 class ContrastiveLoss:
-    def __init__(self, temperature):
+    def __init__(self, temperature, device):
         self.temperature = temperature
+        self.device = device
 
     def __call__(self, original_result, transformed_result, mask_original,
                  mask_transformed):
@@ -52,25 +53,29 @@ class ContrastiveLoss:
         batches = original_result.size()[0]
         loss = []
         total_pixels = W * H
+        denominators = torch.zeros(size = (batches, H, W), dtype = torch.float, device = self.device)
+        for b in range(batches):
+            for p_i in range(H):
+                for p_j in range(W):
+                    print(p_i, p_j)
+                    feature_product = torch.dot(original_result[b, :, p_i, p_j],transformed_result[b].sum(axis=1).sum(axis=1))
+                    denominators[b, p_i, p_j] = torch.div(feature_product, self.temperature)
+        print("end")
         for b in range(batches):
             sum1 = 0
             for p_i in range(H):
                 for p_j in range(W):
+                    print(p_i, p_j)
                     class_of_p_in_original = mask_original[b, :, p_i, p_j]
                     class_of_p_in_transformed = count_labels(class_of_p_in_original, mask_transformed)
                     sum2 = 0
                     for q_i in range(H):
                         for q_j in range(W):
                             if torch.equal(class_of_p_in_original, mask_transformed[b, :, q_i, q_j]):
-                                numerator = torch.div(torch.matmul(original_result[b, :, p_i, p_j],
+                                numerator = torch.div(torch.dot(original_result[b, :, p_i, p_j],
                                                                transformed_result[b, :, q_i, q_j]),
                                                       self.temperature)
-                                denominator = 0
-                                for k_i in range(H):
-                                    for k_j in range(W):
-                                        denominator += torch.div(torch.matmul(original_result[b, :, p_i, p_j],
-                                                                                 transformed_result[b, :, k_i, k_j]),
-                                                                 self.temperature)
+                                denominator = denominators[b, p_i, p_j]
                                 sum2 += torch.log(torch.div(numerator, denominator))
                     sum1 += torch.div(sum2, class_of_p_in_transformed)
             loss.append(torch.div(sum1, (-total_pixels)))
