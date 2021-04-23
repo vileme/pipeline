@@ -57,7 +57,6 @@ class ContrastiveLoss:
         for b in range(batches):
             for p_i in range(H):
                 for p_j in range(W):
-                    print(p_i, p_j)
                     feature_product = torch.dot(original_result[b, :, p_i, p_j],transformed_result[b].sum(axis=1).sum(axis=1))
                     denominators[b, p_i, p_j] = torch.div(feature_product, self.temperature)
         print("end")
