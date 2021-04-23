@@ -54,12 +54,13 @@ class ContrastiveLoss:
         loss = []
         total_pixels = W * H
         denominators = torch.zeros(size = (batches, H, W), dtype = torch.float, device = self.device)
+        print("Started counting denominators")
         for b in range(batches):
             for p_i in range(H):
                 for p_j in range(W):
                     feature_product = torch.dot(original_result[b, :, p_i, p_j],transformed_result[b].sum(axis=1).sum(axis=1))
                     denominators[b, p_i, p_j] = torch.div(feature_product, self.temperature)
-        print("end")
+        print("Ended counting denominators")
         for b in range(batches):
             sum1 = 0
             for p_i in range(H):
