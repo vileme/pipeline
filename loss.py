@@ -2,7 +2,6 @@ import numpy as np
 import torch
 from torch import nn
 
-
 class LossBinary:
     """
     Loss defined as BCE - log(soft_jaccard)
@@ -37,46 +36,38 @@ class LossBinary:
         return loss
 
 
-def count_labels(class_of_p, mask_transformed):
-    return torch.sum(mask_transformed == class_of_p.item()).item()
-
 
 class ContrastiveLoss:
     def __init__(self, temperature, device):
         self.temperature = temperature
         self.device = device
 
-    def __call__(self, original_result, transformed_result, mask_original,
-                 mask_transformed):
+    def count_labels(self, class_of_p, mask_transformed):
+        torch.set_printoptions(threshold=10000)
+        mask = (torch.tensor(mask_transformed == class_of_p.item(), device=self.device)).type(torch.int)
+        n_labels = torch.sum(mask)
+        return mask, n_labels
+
+    def __call__(self, original_result, transformed_result, mask_original, mask_transformed):
         H = original_result.size()[2]
         W = original_result.size()[3]
         batches = original_result.size()[0]
         loss = []
         total_pixels = W * H
-        denominators = torch.zeros(size = (batches, H, W), dtype = torch.float, device = self.device)
-        print("Started counting denominators")
         for b in range(batches):
+            results = torch.zeros((64,64), device=self.device)
             for p_i in range(H):
                 for p_j in range(W):
-                    feature_product = torch.dot(original_result[b, :, p_i, p_j],transformed_result[b].sum(axis=1).sum(axis=1))
-                    denominators[b, p_i, p_j] = torch.div(feature_product, self.temperature)
-        print("Ended counting denominators")
-        for b in range(batches):
-            sum1 = 0
-            for p_i in range(H):
-                for p_j in range(W):
-                    print(p_i, p_j)
                     class_of_p_in_original = mask_original[b, :, p_i, p_j]
-                    class_of_p_in_transformed = count_labels(class_of_p_in_original, mask_transformed)
-                    sum2 = 0
-                    for q_i in range(H):
-                        for q_j in range(W):
-                            if torch.equal(class_of_p_in_original, mask_transformed[b, :, q_i, q_j]):
-                                numerator = torch.div(torch.dot(original_result[b, :, p_i, p_j],
-                                                               transformed_result[b, :, q_i, q_j]),
-                                                      self.temperature)
-                                denominator = denominators[b, p_i, p_j]
-                                sum2 += torch.log(torch.div(numerator, denominator))
-                    sum1 += torch.div(sum2, class_of_p_in_transformed)
-            loss.append(torch.div(sum1, (-total_pixels)))
-        return np.mean(loss)
+                    mask, n_labels = self.count_labels(class_of_p_in_original, mask_transformed[b])
+                    if n_labels == 0:
+                        results[p_i][p_j] = 0
+                        continue
+                    preprod = torch.matmul(transformed_result[b].permute(1, 2, 0), original_result[b, :, p_i, p_j])
+                    preprod = torch.exp(preprod)
+                    denominator = torch.sum(preprod)
+                    preprod = torch.log(torch.div(preprod, denominator))
+                    res = torch.div(torch.sum(mask * preprod), n_labels)
+                    results[p_i][p_j] = res
+            loss.append(torch.div(torch.sum(results), (-total_pixels)).item())
+        return torch.tensor(np.mean(loss), requires_grad=True)

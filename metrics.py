@@ -8,7 +8,8 @@ class AllInOneMeter(object):
     All in one meter: AUC
     """
 
-    def __init__(self):
+    def __init__(self, device):
+        self.device = device
         # super(AllInOneMeter, self).__init__()
         self.out1auc1 = AUCMeter()
         self.out1auc2 = AUCMeter()
@@ -26,8 +27,8 @@ class AllInOneMeter(object):
         self.loss = []
         self.jaccard = []
         # self.nbatch = 0
-        self.intersection = torch.zeros([5], dtype=torch.float, device='cuda:0')
-        self.union = torch.zeros([5], dtype=torch.float, device='cuda:0')
+        self.intersection = torch.zeros([5], dtype=torch.float, device=self.device)
+        self.union = torch.zeros([5], dtype=torch.float, device=self.device)
         self.reset()
 
     def reset(self):
@@ -48,11 +49,13 @@ class AllInOneMeter(object):
         self.loss3 = []
         self.loss = []
         self.jaccard = []
-        self.intersection = torch.zeros([5], dtype=torch.float, device='cuda:0')
-        self.union = torch.zeros([5], dtype=torch.float, device='cuda:0')
+        self.intersection = torch.zeros([5], dtype=torch.float, device=self.device)
+        self.union = torch.zeros([5], dtype=torch.float, device=self.device)
         # self.nbatch = 0
 
     def add(self, mask_prob, true_mask, mask_ind_prob1, mask_ind_prob2, true_mask_ind, loss1, loss2, loss3, loss):
+        print(np.ndim(mask_ind_prob1[:, 0].data))
+        print(np.ndim(true_mask_ind[:, 0].data))
         self.out1auc1.add(mask_ind_prob1[:, 0].data, true_mask_ind[:, 0].data)
         self.out1auc2.add(mask_ind_prob1[:, 1].data, true_mask_ind[:, 1].data)
         self.out1auc3.add(mask_ind_prob1[:, 2].data, true_mask_ind[:, 2].data)

@@ -12,7 +12,7 @@ def validation_binary(model: nn.Module, criterion, valid_loader, device):
     with torch.no_grad():
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                          std=[0.229, 0.224, 0.225])
-        meter = AllInOneMeter()
+        meter = AllInOneMeter(device)
         start_time = time.time()
         w1 = 1.0
         w2 = 0.5

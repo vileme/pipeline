@@ -5,6 +5,7 @@ from collections import defaultdict
 import numpy as np
 import torch
 import torchvision.transforms.functional as TF
+import torch.nn.functional as F
 from keras_preprocessing.image import array_to_img
 from tensorflow.keras.preprocessing.image import img_to_array, load_img
 from torch.utils.data import DataLoader
@@ -44,6 +45,9 @@ class PretrainDataset(Dataset):
         f = h5py.File(mask_file, 'r')
         img_np = f['img'][()]
         mask = torch.tensor(img_np).permute(2, 0, 1)
+        mask = torch.unsqueeze(mask, 0)
+        mask = F.interpolate(mask, (64, 64))
+        mask = torch.squeeze(mask, 0)
         return mask
 
     def transform_fn(self, img_np, mask):
@@ -61,8 +65,8 @@ class PretrainDataset(Dataset):
         shear = random.uniform(0, 0)
 
         image = TF.affine(image, angle, translate, scale, shear)
-        mask = TF.affine(mask, angle, translate, scale, shear)
-
+        torch.set_printoptions(threshold=10000)
+        mask = TF.affine(mask, angle, translate, scale, shear, fill= [-1])
         image = TF.adjust_brightness(image, brightness_factor=random.uniform(0.8, 1.2))
 
         image = TF.adjust_saturation(image, saturation_factor=random.uniform(0.8, 1.2))

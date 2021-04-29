@@ -41,14 +41,14 @@ def main():
     arg = parser.add_argument
     arg('--jaccard-weight', type=float, default=1)
     arg('--t', type=float, default=0.07)
-    arg('--pretrain-epochs', type=int, default=1)
-    arg('--train-epochs', type=int, default=1)
+    arg('--pretrain-epochs', type=int, default=100)
+    arg('--train-epochs', type=int, default=100)
     arg('--train-test-split-file', type=str, default='./data/train_test_id.pickle', help='train test split file path')
     arg('--pretrain-image-path', type=str, default= '/mnt/tank/scratch/vkozyrev/ham10000/', help='train test split file path')
     arg('--pretrain-mask-image-path', type=str, default='/mnt/tank/scratch/vkozyrev/ham_clusters_20/lab/20/', help="images path for pretraining")
-    arg('--image-path', type=str, default='e/mnt/tank/scratch/vkozyrev/task2_h5/', help="h5 images path for training")
-    arg('--batch-size', type=int, default=1, help="n batches")
-    arg('--workers', type=int, default=1, help="n workers")
+    arg('--image-path', type=str, default='/mnt/tank/scratch/vkozyrev/task2_h5/', help="h5 images path for training")
+    arg('--batch-size', type=int, default=8, help="n batches")
+    arg('--workers', type=int, default=4, help="n workers")
     arg('--cuda-driver', type=int, default=1, help="cuda driver")
     arg('--lr', type=float, default=0.001, help="lr")
     args = parser.parse_args()
@@ -83,9 +83,9 @@ def main():
     print('Start pretraining')
     wandb.watch(model)
     for epoch in range(epoch, args.pretrain_epochs + 1):
-        losses = []
         model.train()
         start_time = time.time()
+        losses = []
         for ind, (id, image_original, image_transformed, mask_original, mask_transformed) in enumerate(pretrain_loader):
             criterion = ContrastiveLoss(args.t, device)
             train_image_original = image_original.permute(0, 3, 1, 2)
@@ -95,15 +95,17 @@ def main():
             original_result, _ = model(train_image_original)
             transformed_result, _ = model(train_image_transformed)
             loss = (criterion(original_result, transformed_result, mask_original, mask_transformed))
-            losses.append(loss)
+            losses.append(loss.item())
             print(
-                f'epoch={epoch:3d},iter={ind:3d}, loss={loss:.4g}')
+                f'epoch={epoch:3d},iter={ind:3d}, loss={loss.item():.4g}')
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+        print(losses)
         avg_loss = np.mean(losses)
         wandb.log({"pretrain/loss": avg_loss})
         epoch_time = time.time() - start_time
+        print(f"epoch time:{epoch_time}")
         scheduler.step(avg_loss)
     print("Pretraining ended")
     epoch = 1
@@ -137,7 +139,7 @@ def main():
         print('--' * 10)
     valid_fn = validation_binary
     criterion = LossBinary(jaccard_weight=args.jaccard_weight)
-    meter = AllInOneMeter()
+    meter = AllInOneMeter(device)
 
 
     model.module.projection_head = nn.Conv2d(32, num_classes, 1)
@@ -160,8 +162,10 @@ def main():
             train_image = train_image.permute(0, 3, 1, 2)
             train_mask = train_mask.permute(0, 3, 1, 2)
             train_image = train_image.to(device)
-            train_mask = train_mask.to(device).type(torch.cuda.FloatTensor)
-            train_mask_ind = train_mask_ind.to(device).type(torch.cuda.FloatTensor)
+            train_mask = train_mask.to(device).type(
+                torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor)
+            train_mask_ind = train_mask_ind.to(device).type(
+                torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor)
             outputs, outputs_mask_ind1 = model(train_image)
             outputs_mask_ind2 = nn.MaxPool2d(kernel_size=outputs.size()[2:])(outputs)
             outputs_mask_ind2 = torch.squeeze(outputs_mask_ind2, 2)
@@ -185,7 +189,7 @@ def main():
         train_metrics['image'] = train_image.data
         train_metrics['mask'] = train_mask.data
         train_metrics['prob'] = train_prob.data
-        valid_metrics = valid_fn(model, criterion, valid_loader, device, num_classes)
+        valid_metrics = valid_fn(model, criterion, valid_loader, device)
 
         wandb.log({"loss/loss": valid_metrics["loss"], "loss/loss1": valid_metrics["loss1"],
                    "loss/loss2": valid_metrics["loss2"],

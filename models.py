@@ -24,6 +24,7 @@ class ProjectionHead(nn.Module):
     def __init__(self, in_: int, out: int):
         super().__init__()
         self.activation = nn.ReLU(inplace=True)
+        self.pooling = nn.AvgPool2d(kernel_size=(2, 2))
         self.conv1 = conv1x1(in_, out)
         self.conv2 = conv1x1(in_, out)
         self.conv3 = conv1x1(in_, out)
@@ -32,9 +33,12 @@ class ProjectionHead(nn.Module):
     def forward(self, x):
         x = self.conv1(x)
         x = self.activation(x)
+        x = self.pooling(x)
         x = self.conv2(x)
         x = self.activation(x)
+        x = self.pooling(x)
         x = self.conv3(x)
+        x = self.pooling(x)
         x = self.final(x)
         return x
 
