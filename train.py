@@ -53,9 +53,9 @@ def main():
     arg('--lr', type=float, default=0.001, help="lr")
     args = parser.parse_args()
 
-    wandb.init(project="pipeline")
-    wandb.run.name = f"pipeline lr = {args.lr}\n pretrain epochs = {args.pretrain_epochs}\ntrain epochs = {args.train_epochs}"
-    wandb.run.save()
+    # wandb.init(project="pipeline")
+    # wandb.run.name = f"pipeline lr = {args.lr}\n pretrain epochs = {args.pretrain_epochs}\ntrain epochs = {args.train_epochs}"
+    # wandb.run.save()
 
 
     cudnn.benchmark = True
@@ -64,7 +64,7 @@ def main():
     num_classes = 5
     args.num_classes = 5
     model = UNet16(num_classes= num_classes, pretrained="vgg")
-    model = nn.DataParallel(model)
+    model = nn.DataParallel(model, device_ids=[args.cuda_driver])
     model.to(device)
 
 
@@ -81,7 +81,7 @@ def main():
     scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.8, patience=5, verbose=True)
     print(model)
     print('Start pretraining')
-    wandb.watch(model)
+    # wandb.watch(model)
     for epoch in range(epoch, args.pretrain_epochs + 1):
         model.train()
         start_time = time.time()

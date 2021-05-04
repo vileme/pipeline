@@ -54,8 +54,6 @@ class AllInOneMeter(object):
         # self.nbatch = 0
 
     def add(self, mask_prob, true_mask, mask_ind_prob1, mask_ind_prob2, true_mask_ind, loss1, loss2, loss3, loss):
-        print(np.ndim(mask_ind_prob1[:, 0].data))
-        print(np.ndim(true_mask_ind[:, 0].data))
         self.out1auc1.add(mask_ind_prob1[:, 0].data, true_mask_ind[:, 0].data)
         self.out1auc2.add(mask_ind_prob1[:, 1].data, true_mask_ind[:, 1].data)
         self.out1auc3.add(mask_ind_prob1[:, 2].data, true_mask_ind[:, 2].data)

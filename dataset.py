@@ -51,6 +51,7 @@ class PretrainDataset(Dataset):
         return mask
 
     def transform_fn(self, img_np, mask):
+        # print(mask)
         image = array_to_img(img_np, data_format="channels_last")
         image = get_color_distortion()(image)
         if random.random() > 0.5:
@@ -60,13 +61,18 @@ class PretrainDataset(Dataset):
             image = TF.vflip(image)
             mask = TF.vflip(mask)
         angle = random.randint(0, 90)
-        translate = (random.uniform(0, 100), random.uniform(0, 100))
+        translate = [0, 0]
         scale = random.uniform(0.5, 2)
         shear = random.uniform(0, 0)
 
         image = TF.affine(image, angle, translate, scale, shear)
-        torch.set_printoptions(threshold=10000)
-        mask = TF.affine(mask, angle, translate, scale, shear, fill= [-1])
+        # print(f"angle = {angle}")
+        # print(f"tr = {translate}")
+        # print(f"scale = {scale}")
+        # print(f"shear = {shear}")
+        mask = TF.affine(mask, angle, translate, scale, shear, fill= [100]) #default value for the pixel outside of original image is 100
+        # print(torch.all(mask == 100))
+        # print(mask)
         image = TF.adjust_brightness(image, brightness_factor=random.uniform(0.8, 1.2))
 
         image = TF.adjust_saturation(image, saturation_factor=random.uniform(0.8, 1.2))

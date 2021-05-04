@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from torch import nn
 
+
 class LossBinary:
     """
     Loss defined as BCE - log(soft_jaccard)
@@ -36,38 +37,40 @@ class LossBinary:
         return loss
 
 
-
 class ContrastiveLoss:
     def __init__(self, temperature, device):
         self.temperature = temperature
         self.device = device
 
     def count_labels(self, class_of_p, mask_transformed):
-        torch.set_printoptions(threshold=10000)
-        mask = (torch.tensor(mask_transformed == class_of_p.item(), device=self.device)).type(torch.int)
+        # print(mask_transformed)
+        mask = (mask_transformed == class_of_p).clone().detach().type(torch.int)
         n_labels = torch.sum(mask)
+        # print(n_labels)
         return mask, n_labels
 
     def __call__(self, original_result, transformed_result, mask_original, mask_transformed):
         H = original_result.size()[2]
         W = original_result.size()[3]
         batches = original_result.size()[0]
-        loss = []
         total_pixels = W * H
+        loss = torch.zeros(batches, device=self.device)
         for b in range(batches):
-            results = torch.zeros((64,64), device=self.device)
+            results = torch.zeros((H, W), device=self.device)
             for p_i in range(H):
                 for p_j in range(W):
                     class_of_p_in_original = mask_original[b, :, p_i, p_j]
                     mask, n_labels = self.count_labels(class_of_p_in_original, mask_transformed[b])
                     if n_labels == 0:
-                        results[p_i][p_j] = 0
                         continue
                     preprod = torch.matmul(transformed_result[b].permute(1, 2, 0), original_result[b, :, p_i, p_j])
                     preprod = torch.exp(preprod)
                     denominator = torch.sum(preprod)
                     preprod = torch.log(torch.div(preprod, denominator))
-                    res = torch.div(torch.sum(mask * preprod), n_labels)
-                    results[p_i][p_j] = res
-            loss.append(torch.div(torch.sum(results), (-total_pixels)).item())
-        return torch.tensor(np.mean(loss), requires_grad=True)
+                    sum_p = torch.div(torch.sum(mask * preprod), n_labels)
+                    results[p_i][p_j] = sum_p
+
+            res = torch.div(torch.sum(results), (-total_pixels))
+            loss[b] = res
+        print(torch.mean(loss))
+        return torch.mean(loss)
