@@ -2,7 +2,6 @@ import numpy as np
 import torch
 from torch import nn
 
-
 class LossBinary:
     """
     Loss defined as BCE - log(soft_jaccard)
@@ -37,6 +36,7 @@ class LossBinary:
         return loss
 
 
+
 class ContrastiveLoss:
     def __init__(self, temperature, device):
         self.temperature = temperature
@@ -44,12 +44,16 @@ class ContrastiveLoss:
 
     def count_labels(self, class_of_p, mask_transformed):
         # print(mask_transformed)
-        mask = (mask_transformed == class_of_p).clone().detach().type(torch.int)
+        mask = (mask_transformed == class_of_p).clone().detach().type(torch.int).to(self.device)
         n_labels = torch.sum(mask)
         # print(n_labels)
         return mask, n_labels
 
     def __call__(self, original_result, transformed_result, mask_original, mask_transformed):
+        # print(mask_original)
+        # print(mask_transformed)
+        # if(torch.all(mask_transformed == 100)):
+        #     print(f"gg : {transformed_result}")
         H = original_result.size()[2]
         W = original_result.size()[3]
         batches = original_result.size()[0]
@@ -69,8 +73,10 @@ class ContrastiveLoss:
                     preprod = torch.log(torch.div(preprod, denominator))
                     sum_p = torch.div(torch.sum(mask * preprod), n_labels)
                     results[p_i][p_j] = sum_p
-
+            # print(results)
             res = torch.div(torch.sum(results), (-total_pixels))
+            # print(res)
             loss[b] = res
-        print(torch.mean(loss))
+        # print(loss)
+        # print(torch.mean(loss))
         return torch.mean(loss)

@@ -100,6 +100,7 @@ def main():
                 f'epoch={epoch:3d},iter={ind:3d}, loss={loss.item():.4g}')
             optimizer.zero_grad()
             loss.backward()
+
             optimizer.step()
         print(losses)
         avg_loss = np.mean(losses)
