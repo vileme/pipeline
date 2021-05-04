@@ -68,7 +68,7 @@ class ContrastiveLoss:
                     if n_labels == 0:
                         continue
                     preprod = torch.matmul(transformed_result[b].permute(1, 2, 0), original_result[b, :, p_i, p_j])
-                    preprod = torch.exp(preprod)
+                    preprod = torch.exp(torch.div(preprod, self.temperature))
                     denominator = torch.sum(preprod)
                     preprod = torch.log(torch.div(preprod, denominator))
                     sum_p = torch.div(torch.sum(mask * preprod), n_labels)

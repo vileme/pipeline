@@ -109,14 +109,18 @@ def main():
                 f'epoch={epoch:3d},iter={ind:3d}, loss={loss.item():.4g}')
             optimizer.zero_grad()
             loss.backward()
-
             optimizer.step()
-        print(losses)
+            break
+
         avg_loss = np.mean(losses)
         wandb.log({"pretrain/loss": avg_loss})
         epoch_time = time.time() - start_time
         print(f"epoch time:{epoch_time}")
         scheduler.step(avg_loss)
+        model_path = f"checkpoint/model_epoch_{epoch}.pt"
+        torch.save({'model': model.state_dict(), 'epoch': epoch, 'loss': avg_loss},
+               str(model_path)
+               )
     print("Pretraining ended")
     epoch = 1
     ## get train_test_id
