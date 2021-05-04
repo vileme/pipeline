@@ -39,14 +39,16 @@ def get_split(train_test_split_file='./data/train_test_id.pickle'):
 def main():
     parser = argparse.ArgumentParser()
     arg = parser.add_argument
+    server = True
+    path_default = "/mnt/tank/scratch/vkozyrev/" if server else "e:/diploma/"
     arg('--jaccard-weight', type=float, default=1)
     arg('--t', type=float, default=0.07)
     arg('--pretrain-epochs', type=int, default=100)
     arg('--train-epochs', type=int, default=100)
     arg('--train-test-split-file', type=str, default='./data/train_test_id.pickle', help='train test split file path')
-    arg('--pretrain-image-path', type=str, default= '/mnt/tank/scratch/vkozyrev/ham10000/', help='train test split file path')
-    arg('--pretrain-mask-image-path', type=str, default='/mnt/tank/scratch/vkozyrev/ham_clusters_20/lab/20/', help="images path for pretraining")
-    arg('--image-path', type=str, default='/mnt/tank/scratch/vkozyrev/task2_h5/', help="h5 images path for training")
+    arg('--pretrain-image-path', type=str, default= f'{path_default}ham10000/', help='train test split file path')
+    arg('--pretrain-mask-image-path', type=str, default=f'{path_default}/ham_clusters_20/lab/20/', help="images path for pretraining")
+    arg('--image-path', type=str, default=f'{path_default}task2_h5/', help="h5 images path for training")
     arg('--batch-size', type=int, default=8, help="n batches")
     arg('--workers', type=int, default=4, help="n workers")
     arg('--cuda-driver', type=int, default=1, help="cuda driver")
@@ -92,6 +94,10 @@ def main():
             train_image_transformed = image_transformed.permute(0, 3, 1, 2)
             train_image_original.to(device)
             train_image_transformed.to(device)
+            mask_original.to(device).type(
+                torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor)
+            mask_transformed.to(device).type(
+                torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor)
             original_result, _ = model(train_image_original)
             transformed_result, _ = model(train_image_transformed)
             loss = (criterion(original_result, transformed_result, mask_original, mask_transformed))

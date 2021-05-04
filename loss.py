@@ -44,7 +44,7 @@ class ContrastiveLoss:
 
     def count_labels(self, class_of_p, mask_transformed):
         # print(mask_transformed)
-        mask = (mask_transformed == class_of_p).clone().detach().type(torch.int).to(self.device)
+        mask = (mask_transformed == class_of_p).detach().type(torch.int).to(self.device)
         n_labels = torch.sum(mask)
         # print(n_labels)
         return mask, n_labels
