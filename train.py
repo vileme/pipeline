@@ -43,7 +43,7 @@ def main():
     path_default = "/mnt/tank/scratch/vkozyrev/" if server else "e:/diploma/"
     arg('--jaccard-weight', type=float, default=1)
     arg('--t', type=float, default=0.07)
-    arg('--pretrain-epochs', type=int, default=100)
+    arg('--pretrain-epochs', type=int, default=10)
     arg('--train-epochs', type=int, default=100)
     arg('--train-test-split-file', type=str, default='./data/train_test_id.pickle', help='train test split file path')
     arg('--pretrain-image-path', type=str, default= f'{path_default}ham10000/', help='train test split file path')
@@ -51,13 +51,13 @@ def main():
     arg('--image-path', type=str, default=f'{path_default}task2_h5/', help="h5 images path for training")
     arg('--batch-size', type=int, default=8, help="n batches")
     arg('--workers', type=int, default=4, help="n workers")
-    arg('--cuda-driver', type=int, default=1, help="cuda driver")
+    arg('--cuda-driver', type=int, default=2, help="cuda driver")
     arg('--lr', type=float, default=0.001, help="lr")
     args = parser.parse_args()
 
-    # wandb.init(project="pipeline")
-    # wandb.run.name = f"pipeline lr = {args.lr}\n pretrain epochs = {args.pretrain_epochs}\ntrain epochs = {args.train_epochs}"
-    # wandb.run.save()
+    wandb.init(project="pipeline")
+    wandb.run.name = f"pipeline lr = {args.lr}\n pretrain epochs = {args.pretrain_epochs}\ntrain epochs = {args.train_epochs}"
+    wandb.run.save()
 
 
     cudnn.benchmark = True
@@ -66,7 +66,7 @@ def main():
     num_classes = 5
     args.num_classes = 5
     model = UNet16(num_classes= num_classes, pretrained="vgg")
-    model = nn.DataParallel(model, device_ids=[args.cuda_driver])
+    model = nn.DataParallel(model, device_ids=[args.cuda_driver, 1])
     model.to(device)
 
 
@@ -83,20 +83,23 @@ def main():
     scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.8, patience=5, verbose=True)
     print(model)
     print('Start pretraining')
-    # wandb.watch(model)
+    wandb.watch(model)
     for epoch in range(epoch, args.pretrain_epochs + 1):
         model.train()
         start_time = time.time()
         losses = []
         for ind, (id, image_original, image_transformed, mask_original, mask_transformed) in enumerate(pretrain_loader):
             criterion = ContrastiveLoss(args.t, device)
+            #print(torch.cuda.memory_allocated(device)/ (1024 ** 2))
+            #print(torch.cuda.memory_reserved(device)/(1024 ** 2))
+            #print(torch.cuda.max_memory_allocated(device) / (1024 ** 2))
             train_image_original = image_original.permute(0, 3, 1, 2)
             train_image_transformed = image_transformed.permute(0, 3, 1, 2)
-            train_image_original.to(device)
-            train_image_transformed.to(device)
-            mask_original.to(device).type(
+            train_image_original = train_image_original.to(device)
+            train_image_transformed = train_image_transformed.to(device)
+            mask_original = mask_original.to(device).type(
                 torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor)
-            mask_transformed.to(device).type(
+            mask_transformed = mask_transformed.to(device).type(
                 torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor)
             original_result, _ = model(train_image_original)
             transformed_result, _ = model(train_image_transformed)
