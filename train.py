@@ -39,7 +39,7 @@ def get_split(train_test_split_file='./data/train_test_id.pickle'):
 def main():
     parser = argparse.ArgumentParser()
     arg = parser.add_argument
-    server = True
+    server = False
     path_default = "/mnt/tank/scratch/vkozyrev/" if server else "e:/diploma/"
     arg('--jaccard-weight', type=float, default=1)
     arg('--t', type=float, default=0.07)
@@ -61,6 +61,7 @@ def main():
 
 
     cudnn.benchmark = True
+    torch.backends.cudnn.enabled = False
     device = torch.device(f'cuda:{args.cuda_driver}' if torch.cuda.is_available() else 'cpu')
 
     num_classes = 5
@@ -99,9 +100,9 @@ def main():
             train_image_original = train_image_original.to(device)
             train_image_transformed = train_image_transformed.to(device)
             mask_original = mask_original.to(device).type(
-                torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor)
+                torch.cuda.ByteTensor if torch.cuda.is_available() else torch.ByteTensor)
             mask_transformed = mask_transformed.to(device).type(
-                torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor)
+                torch.cuda.ByteTensor if torch.cuda.is_available() else torch.ByteTensor)
             original_result, _ = model(train_image_original)
             transformed_result, _ = model(train_image_transformed)
             loss = (criterion(original_result, transformed_result, mask_original, mask_transformed))
@@ -109,9 +110,9 @@ def main():
             print(
                 f'epoch={epoch:3d},iter={ind:3d}, loss={loss.item():.4g}')
             optimizer.zero_grad()
-            start_step = time.time()
+            start_backward = time.time()
             loss.backward()
-            print(time.time() - start_time)
+            print(f"backward time:{time.time() - start_backward}")
             optimizer.step()
 
         avg_loss = np.mean(losses)

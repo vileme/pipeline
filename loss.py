@@ -1,3 +1,4 @@
+import math
 import time
 
 import numpy as np
@@ -44,12 +45,6 @@ class ContrastiveLoss:
         self.temperature = temperature
         self.device = device
 
-    def count_labels(self, class_of_p, mask_transformed):
-        # print(mask_transformed)
-        mask = (mask_transformed == class_of_p).detach().type(torch.uint8)
-        n_labels = torch.sum(mask)
-        # print(n_labels)
-        return mask, n_labels
 
     def __call__(self, original_result, transformed_result, mask_original, mask_transformed):
         start_time = time.time()
@@ -63,24 +58,30 @@ class ContrastiveLoss:
         total_pixels = W * H
         loss = torch.zeros(batches, device=self.device)
         for b in range(batches):
-            results = torch.zeros((H, W), device=self.device)
-            for p_i in range(H):
-                for p_j in range(W):
-                    class_of_p_in_original = mask_original[b, :, p_i, p_j]
-                    mask, n_labels = self.count_labels(class_of_p_in_original, mask_transformed[b])
-                    if n_labels == 0:
-                        continue
-                    preprod = torch.matmul(transformed_result[b].permute(1, 2, 0), original_result[b, :, p_i, p_j])
-                    preprod = torch.exp(torch.div(preprod, self.temperature))
-                    denominator = torch.sum(preprod)
-                    preprod = torch.log(torch.div(preprod, denominator))
-                    sum_p = torch.div(torch.sum(mask * preprod), n_labels)
-                    results[p_i][p_j] = sum_p
-            # print(results)
-            res = torch.div(torch.sum(results), (-total_pixels))
-            # print(res)
-            loss[b] = res
-        print(time.time() - start_time)
-        # print(loss)
-        # print(torch.mean(loss))
+            mask_or_tiles = mask_original[b].flatten().reshape(total_pixels, 1).repeat(1, total_pixels).reshape(total_pixels, total_pixels)
+            mask_tr_tiles = mask_transformed[b].repeat(total_pixels, 1, 1).reshape(total_pixels, total_pixels)
+            mask = (mask_or_tiles == mask_tr_tiles).type(torch.uint8)
+            n_labels = mask.sum(1)
+            channels = original_result.shape[1]
+            features_dot = torch.einsum('ik, jk -> ij', original_result[b].reshape(total_pixels, channels), transformed_result[b].reshape(total_pixels, channels))
+            features_dot = torch.div(features_dot, self.temperature)
+            features_dot = torch.exp(features_dot)
+            sum = torch.sum(features_dot, 1).reshape(total_pixels, 1).repeat(1, total_pixels)
+            div = torch.div(features_dot, sum)
+            log = torch.log(div)
+            prod = mask * log
+            sum_q = prod.sum(1)
+            if torch.any(n_labels == 0):  #if no pixels with class p zero div happens
+                result = torch.zeros(total_pixels, device= self.device)
+                for i, n in enumerate(n_labels):
+                    if n == 0:
+                        result[i] = 0
+                    else :
+                        result[i] = torch.div(sum_q[i], n)
+                loss[b] = torch.div(result.sum(), -total_pixels)
+                continue
+            sum_p = torch.div(sum_q, n_labels).sum()
+            loss[b] = torch.div(sum_p, -total_pixels)
+        print(f"loss time:{time.time() - start_time}")
+        print(torch.mean(loss))
         return torch.mean(loss)
