@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import torch
 from torch import nn
@@ -44,12 +46,13 @@ class ContrastiveLoss:
 
     def count_labels(self, class_of_p, mask_transformed):
         # print(mask_transformed)
-        mask = (mask_transformed == class_of_p).detach().type(torch.int)
+        mask = (mask_transformed == class_of_p).detach().type(torch.uint8)
         n_labels = torch.sum(mask)
         # print(n_labels)
         return mask, n_labels
 
     def __call__(self, original_result, transformed_result, mask_original, mask_transformed):
+        start_time = time.time()
         # print(mask_original)
         # print(mask_transformed)
         # if(torch.all(mask_transformed == 100)):
@@ -77,6 +80,7 @@ class ContrastiveLoss:
             res = torch.div(torch.sum(results), (-total_pixels))
             # print(res)
             loss[b] = res
+        print(time.time() - start_time)
         # print(loss)
         # print(torch.mean(loss))
         return torch.mean(loss)

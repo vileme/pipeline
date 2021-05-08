@@ -50,14 +50,14 @@ def main():
     arg('--pretrain-mask-image-path', type=str, default=f'{path_default}/ham_clusters_20/lab/20/', help="images path for pretraining")
     arg('--image-path', type=str, default=f'{path_default}task2_h5/', help="h5 images path for training")
     arg('--batch-size', type=int, default=8, help="n batches")
-    arg('--workers', type=int, default=4, help="n workers")
+    arg('--workers', type=int, default=1, help="n workers")
     arg('--cuda-driver', type=int, default=2, help="cuda driver")
     arg('--lr', type=float, default=0.001, help="lr")
     args = parser.parse_args()
 
-    wandb.init(project="pipeline")
-    wandb.run.name = f"pipeline lr = {args.lr}\n pretrain epochs = {args.pretrain_epochs}\ntrain epochs = {args.train_epochs}"
-    wandb.run.save()
+    # wandb.init(project="pipeline")
+    # wandb.run.name = f"pipeline lr = {args.lr}\n pretrain epochs = {args.pretrain_epochs}\ntrain epochs = {args.train_epochs}"
+    # wandb.run.save()
 
 
     cudnn.benchmark = True
@@ -83,12 +83,13 @@ def main():
     scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.8, patience=5, verbose=True)
     print(model)
     print('Start pretraining')
-    wandb.watch(model)
+    # wandb.watch(model)
     for epoch in range(epoch, args.pretrain_epochs + 1):
         model.train()
         start_time = time.time()
         losses = []
         for ind, (id, image_original, image_transformed, mask_original, mask_transformed) in enumerate(pretrain_loader):
+            start_step = time.time()
             criterion = ContrastiveLoss(args.t, device)
             #print(torch.cuda.memory_allocated(device)/ (1024 ** 2))
             #print(torch.cuda.memory_reserved(device)/(1024 ** 2))
@@ -108,9 +109,10 @@ def main():
             print(
                 f'epoch={epoch:3d},iter={ind:3d}, loss={loss.item():.4g}')
             optimizer.zero_grad()
+            start_step = time.time()
             loss.backward()
+            print(time.time() - start_time)
             optimizer.step()
-            break
 
         avg_loss = np.mean(losses)
         wandb.log({"pretrain/loss": avg_loss})
