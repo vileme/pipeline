@@ -52,12 +52,11 @@ def main():
     arg('--batch-size', type=int, default=8, help="n batches")
     arg('--workers', type=int, default=4, help="n workers")
     arg('--cuda-driver', type=int, default=1, help="cuda driver")
+    arg('--resume-path', type=str, default=None)
     arg('--lr', type=float, default=0.001, help="lr")
+    arg('--wandb', type=bool, default= True, help="wandb log")
     args = parser.parse_args()
 
-    wandb.init(project="pipeline")
-    wandb.run.name = f"pipeline lr = {args.lr}\n pretrain epochs = {args.pretrain_epochs}\ntrain epochs = {args.train_epochs}"
-    wandb.run.save()
 
 
     cudnn.benchmark = True
@@ -67,7 +66,7 @@ def main():
     num_classes = 5
     args.num_classes = 5
     model = UNet16(num_classes= num_classes, pretrained="vgg")
-    model = nn.DataParallel(model, device_ids=[args.cuda_driver, 0, 2, 3])
+    model = nn.DataParallel(model, device_ids=[args.cuda_driver])
     model.to(device)
 
 
@@ -82,10 +81,20 @@ def main():
     epoch = 1
     optimizer = Adam(model.parameters(), lr=args.lr)
     scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.8, patience=5, verbose=True)
+    if args.resume_path is not None:
+        state = torch.load(str(args.resume_path))
+        epoch = state['epoch'] + 1
+        model.load_state_dict(state['model'])
+        print('--' * 10)
+        print('Restored previous model, epoch {}'.format(epoch))
+        print('--' * 10)
     print(model)
     print('Start pretraining')
     criterion = ContrastiveLoss(args.t, device)
     cuda_available = torch.cuda.is_available()
+    wandb.init(project="pipeline")
+    wandb.run.name = f"pipeline lr = {args.lr}\n pretrain epochs = {args.pretrain_epochs}\ntrain epochs = {args.train_epochs}"
+    wandb.run.save()
     wandb.watch(model)
     for epoch in range(epoch, args.pretrain_epochs + 1):
         model.train()
@@ -122,9 +131,10 @@ def main():
             optimizer.step()
             #print(f"oprimizer time:{time.time() - start_optimizer}")
             #print(f"step time:{time.time() - start_step}")
+            break
 
         avg_loss = np.mean(losses)
-        wandb.log({"pretrain/loss": avg_loss})
+        # wandb.log({"pretrain/loss": avg_loss})
         epoch_time = time.time() - start_time
         print(f"epoch time:{epoch_time}")
         scheduler.step(avg_loss)
