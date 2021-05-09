@@ -49,15 +49,15 @@ def main():
     arg('--pretrain-image-path', type=str, default= f'{path_default}/ham10000/', help='train test split file path')
     arg('--pretrain-mask-image-path', type=str, default=f'{path_default}/ham_clusters_20/lab/20/', help="images path for pretraining")
     arg('--image-path', type=str, default=f'{path_default}/task2_h5/', help="h5 images path for training")
-    arg('--batch-size', type=int, default=5, help="n batches")
+    arg('--batch-size', type=int, default=8, help="n batches")
     arg('--workers', type=int, default=4, help="n workers")
     arg('--cuda-driver', type=int, default=1, help="cuda driver")
     arg('--lr', type=float, default=0.001, help="lr")
     args = parser.parse_args()
 
-    # wandb.init(project="pipeline")
-    # wandb.run.name = f"pipeline lr = {args.lr}\n pretrain epochs = {args.pretrain_epochs}\ntrain epochs = {args.train_epochs}"
-    # wandb.run.save()
+    wandb.init(project="pipeline")
+    wandb.run.name = f"pipeline lr = {args.lr}\n pretrain epochs = {args.pretrain_epochs}\ntrain epochs = {args.train_epochs}"
+    wandb.run.save()
 
 
     cudnn.benchmark = True
@@ -85,13 +85,14 @@ def main():
     print(model)
     print('Start pretraining')
     criterion = ContrastiveLoss(args.t, device)
-    # wandb.watch(model)
+    cuda_available = torch.cuda.is_available()
+    wandb.watch(model)
     for epoch in range(epoch, args.pretrain_epochs + 1):
         model.train()
         start_time = time.time()
         losses = []
         for ind, (id, image_original, image_transformed, mask_original, mask_transformed) in enumerate(pretrain_loader):
-            start_step = time.time()
+            #start_step = time.time()
             #print(torch.cuda.memory_allocated(device)/ (1024 ** 2))
             #print(torch.cuda.memory_reserved(device)/(1024 ** 2))
             #print(torch.cuda.max_memory_allocated(device) / (1024 ** 2))
@@ -100,27 +101,27 @@ def main():
             train_image_original = train_image_original.to(device)
             train_image_transformed = train_image_transformed.to(device)
             mask_original = mask_original.to(device).type(
-                torch.cuda.ByteTensor if torch.cuda.is_available() else torch.ByteTensor)
+                torch.cuda.ByteTensor if cuda_available else torch.ByteTensor)
             mask_transformed = mask_transformed.to(device).type(
-                torch.cuda.ByteTensor if torch.cuda.is_available() else torch.ByteTensor)
-            forward_start = time.time()
+                torch.cuda.ByteTensor if cuda_available else torch.ByteTensor)
+            #forward_start = time.time()
             original_result, _ = model(train_image_original)
             transformed_result, _ = model(train_image_transformed)
-            print(f"forward start :{time.time() - forward_start}")
+            #print(f"forward start :{time.time() - forward_start}")
             loss = (criterion(original_result, transformed_result, mask_original, mask_transformed))
             losses.append(loss.item())
             print(
                 f'epoch={epoch:3d},iter={ind:3d}, loss={loss.item():.4g}')
-            zero_grad_start = time.time()
+            #zero_grad_start = time.time()
             optimizer.zero_grad()
-            print(f"zero grad time:{time.time() - zero_grad_start}")
-            start_backward = time.time()
+            #print(f"zero grad time:{time.time() - zero_grad_start}")
+            #start_backward = time.time()
             loss.backward()
-            print(f"backward time:{time.time() - start_backward}")
-            start_optimizer = time.time()
+            #print(f"backward time:{time.time() - start_backward}")
+            #start_optimizer = time.time()
             optimizer.step()
-            print(f"oprimizer time:{time.time() - start_optimizer}")
-            print(f"step time:{time.time() - start_step}")
+            #print(f"oprimizer time:{time.time() - start_optimizer}")
+            #print(f"step time:{time.time() - start_step}")
 
         avg_loss = np.mean(losses)
         wandb.log({"pretrain/loss": avg_loss})

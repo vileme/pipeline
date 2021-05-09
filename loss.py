@@ -47,7 +47,7 @@ class ContrastiveLoss:
 
 
     def __call__(self, original_result, transformed_result, mask_original, mask_transformed):
-        start_time = time.time()
+        #start_time = time.time()
         # print(mask_original)
         # print(mask_transformed)
         # if(torch.all(mask_transformed == 100)):
@@ -75,6 +75,6 @@ class ContrastiveLoss:
             sum_p = torch.zeros(total_pixels, device=self.device)
             sum_p[n_labels != 0] = torch.div(sum_q[n_labels != 0], n_labels[n_labels != 0])
             loss[b] = torch.div(sum_p.sum(), -total_pixels)
-        print(f"loss time:{time.time() - start_time}")
-        print(torch.mean(loss))
+        #print(f"loss time:{time.time() - start_time}")
+        #print(torch.mean(loss))
         return torch.mean(loss)

@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from wandb.old.summary import h5py
 import psutil
-
+import time
 
 def get_color_distortion(s=1.0):
     # s is the strength of color distortion.
@@ -92,12 +92,14 @@ class PretrainDataset(Dataset):
         return image, mask
 
     def __getitem__(self, item):
+        #start = time.time()
         image_id = self.images[item]
         image_original = self.images_in_memory[item]
         mask_original = self.masks_in_memory[item]
         image_transformed, mask_transformed = self.transform_fn(image_original, mask_original)
         image_original = (image_original / 255.0).astype('float32')
         image_transformed = (image_transformed / 255.0).astype('float32')
+       # print(f"load image time: {time.time() - start}")
         return image_id, image_original, image_transformed, mask_original, mask_transformed
 
 
@@ -107,7 +109,7 @@ def make_pretrain_loader(image_path, mask_path, args, shuffle=True):
                              batch_size=args.batch_size,
                              shuffle=shuffle,
                              num_workers=args.workers,
-                             pin_memory=torch.cuda.is_available())
+                             pin_memory= False)
     return data_loader
 
 
