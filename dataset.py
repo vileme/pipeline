@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from torchvision import transforms
 from wandb.old.summary import h5py
+import psutil
 
 
 def get_color_distortion(s=1.0):
@@ -30,7 +31,19 @@ class PretrainDataset(Dataset):
         self.mask_path = mask_path
         self.images = os.listdir(image_path)
         self.masks = os.listdir(mask_path)
-        self.n = len(self.masks)
+        self.images_in_memory = []
+        self.masks_in_memory = []
+        for i, p in enumerate(self.images):
+            image_file = f"{self.image_path}/{p}"
+            mask_path = p.replace(".jpg", ".h5")
+            mask_file = f"{self.mask_path}/{mask_path}"
+            print(f"loaded {i} / {len(self.images)} in memory")
+            self.images_in_memory.append(self.load_image(image_file))
+            self.masks_in_memory.append(self.load_mask(mask_file))
+            if i == 100 : break
+        print(f"cpu memory :{psutil.virtual_memory().percent}")
+        self.n = len(self.images_in_memory)
+
 
     def __len__(self):
         return self.n
@@ -51,7 +64,6 @@ class PretrainDataset(Dataset):
         return mask
 
     def transform_fn(self, img_np, mask):
-        # print(mask)
         image = array_to_img(img_np, data_format="channels_last")
         image = get_color_distortion()(image)
         if random.random() > 0.5:
@@ -82,11 +94,8 @@ class PretrainDataset(Dataset):
 
     def __getitem__(self, item):
         image_id = self.images[item]
-        mask_id = image_id.replace(".jpg", ".h5")
-        image_file = f"{self.image_path}/{image_id}"
-        mask_file = f"{self.mask_path}/{mask_id}"
-        image_original = self.load_image(image_file)
-        mask_original = self.load_mask(mask_file)
+        image_original = self.images_in_memory[item]
+        mask_original = self.masks_in_memory[item]
         image_transformed, mask_transformed = self.transform_fn(image_original, mask_original)
         image_original = (image_original / 255.0).astype('float32')
         image_transformed = (image_transformed / 255.0).astype('float32')

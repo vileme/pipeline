@@ -39,16 +39,16 @@ def get_split(train_test_split_file='./data/train_test_id.pickle'):
 def main():
     parser = argparse.ArgumentParser()
     arg = parser.add_argument
-    server = True
-    path_default = "/mnt/tank/scratch/vkozyrev/" if server else "e:/diploma/"
+    server = False
+    path_default = "./data" if server else "e:/diploma"
     arg('--jaccard-weight', type=float, default=1)
     arg('--t', type=float, default=0.07)
     arg('--pretrain-epochs', type=int, default=10)
     arg('--train-epochs', type=int, default=100)
     arg('--train-test-split-file', type=str, default='./data/train_test_id.pickle', help='train test split file path')
-    arg('--pretrain-image-path', type=str, default= f'{path_default}ham10000/', help='train test split file path')
+    arg('--pretrain-image-path', type=str, default= f'{path_default}/ham10000/', help='train test split file path')
     arg('--pretrain-mask-image-path', type=str, default=f'{path_default}/ham_clusters_20/lab/20/', help="images path for pretraining")
-    arg('--image-path', type=str, default=f'{path_default}task2_h5/', help="h5 images path for training")
+    arg('--image-path', type=str, default=f'{path_default}/task2_h5/', help="h5 images path for training")
     arg('--batch-size', type=int, default=8, help="n batches")
     arg('--workers', type=int, default=1, help="n workers")
     arg('--cuda-driver', type=int, default=2, help="cuda driver")
@@ -61,13 +61,13 @@ def main():
 
 
     cudnn.benchmark = True
-    torch.backends.cudnn.enabled = False
+    torch.backends.cudnn.enabled = True
     device = torch.device(f'cuda:{args.cuda_driver}' if torch.cuda.is_available() else 'cpu')
 
     num_classes = 5
     args.num_classes = 5
     model = UNet16(num_classes= num_classes, pretrained="vgg")
-    model = nn.DataParallel(model, device_ids=[args.cuda_driver, 1])
+    model = nn.DataParallel(model, device_ids=[args.cuda_driver])
     model.to(device)
 
 
@@ -114,6 +114,7 @@ def main():
             loss.backward()
             print(f"backward time:{time.time() - start_backward}")
             optimizer.step()
+            print(f"step time:{time.time() - start_step}")
 
         avg_loss = np.mean(losses)
         wandb.log({"pretrain/loss": avg_loss})
