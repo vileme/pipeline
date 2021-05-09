@@ -43,7 +43,7 @@ def main():
     path_default = "./data" if server else "e:/diploma"
     arg('--jaccard-weight', type=float, default=1)
     arg('--t', type=float, default=0.07)
-    arg('--pretrain-epochs', type=int, default=10)
+    arg('--pretrain-epochs', type=int, default=100)
     arg('--train-epochs', type=int, default=100)
     arg('--train-test-split-file', type=str, default='./data/train_test_id.pickle', help='train test split file path')
     arg('--pretrain-image-path', type=str, default= f'{path_default}/ham10000/', help='train test split file path')
