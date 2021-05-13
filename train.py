@@ -39,7 +39,7 @@ def get_split(train_test_split_file='./data/train_test_id.pickle'):
 def main():
     parser = argparse.ArgumentParser()
     arg = parser.add_argument
-    server = True
+    server = False
     path_default = "./data" if server else "e:/diploma"
     arg('--jaccard-weight', type=float, default=1)
     arg('--t', type=float, default=0.07)
