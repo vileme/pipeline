@@ -40,7 +40,6 @@ class PretrainDataset(Dataset):
             print(f"loaded {i} / {len(self.images)} in memory")
             self.images_in_memory.append(self.load_image(image_file))
             self.masks_in_memory.append(self.load_mask(mask_file))
-            if i == 5: break
         print(f"cpu memory :{psutil.virtual_memory().percent}")
         self.n = len(self.images_in_memory)
 
@@ -110,7 +109,7 @@ def make_pretrain_loader(image_path, mask_path, args, shuffle=True):
                              batch_size=args.batch_size,
                              shuffle=shuffle,
                              num_workers=args.workers,
-                             pin_memory= False)
+                             pin_memory= True)
     return data_loader
 
 

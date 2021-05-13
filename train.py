@@ -46,11 +46,11 @@ def main():
     arg('--pretrain-epochs', type=int, default=100)
     arg('--train-epochs', type=int, default=100)
     arg('--train-test-split-file', type=str, default='./data/train_test_id.pickle', help='train test split file path')
-    arg('--pretrain-image-path', type=str, default= f'{path_default}/ham10000/', help='train test split file path')
+    arg('--pretrain-image-path', type=str, default= f'{path_default}/ham10000_resized/', help='train test split file path')
     arg('--pretrain-mask-image-path', type=str, default=f'{path_default}/ham_clusters_20/lab/20/', help="images path for pretraining")
     arg('--image-path', type=str, default=f'{path_default}/task2_h5/', help="h5 images path for training")
     arg('--batch-size', type=int, default=8, help="n batches")
-    arg('--workers', type=int, default=4, help="n workers")
+    arg('--workers', type=int, default=6, help="n workers")
     arg('--cuda-driver', type=int, default=1, help="cuda driver")
     arg('--resume-path', type=str, default=None)
     arg('--lr', type=float, default=0.001, help="lr")
@@ -101,18 +101,24 @@ def main():
         start_time = time.time()
         losses = []
         for ind, (id, image_original, image_transformed, mask_original, mask_transformed) in enumerate(pretrain_loader):
-            #start_step = time.time()
+            start_step = time.time()
+            print()
             #print(torch.cuda.memory_allocated(device)/ (1024 ** 2))
             #print(torch.cuda.memory_reserved(device)/(1024 ** 2))
             #print(torch.cuda.max_memory_allocated(device) / (1024 ** 2))
             train_image_original = image_original.permute(0, 3, 1, 2)
             train_image_transformed = image_transformed.permute(0, 3, 1, 2)
-            train_image_original = train_image_original.to(device)
-            train_image_transformed = train_image_transformed.to(device)
-            mask_original = mask_original.to(device).type(
+            #print(f"permute time {time.time() - start_step}")
+            #start_image_transfer = time.time()
+            train_image_original = train_image_original.cuda(device, non_blocking = True)
+            train_image_transformed = train_image_transformed.cuda(device, non_blocking = True)
+            #print(f"train transfer : {time.time() - start_image_transfer}")
+            #start_mask_transfer = time.time()
+            mask_original = mask_original.cuda(device, non_blocking = True).type(
                 torch.cuda.ByteTensor if cuda_available else torch.ByteTensor)
-            mask_transformed = mask_transformed.to(device).type(
+            mask_transformed = mask_transformed.cuda(device, non_blocking = True).type(
                 torch.cuda.ByteTensor if cuda_available else torch.ByteTensor)
+            #print(f"mask_transfer : {time.time() - start_mask_transfer}")
             #forward_start = time.time()
             original_result, _ = model(train_image_original)
             transformed_result, _ = model(train_image_transformed)
@@ -121,7 +127,7 @@ def main():
             losses.append(loss.item())
             print(
                 f'epoch={epoch:3d},iter={ind:3d}, loss={loss.item():.4g}')
-            #zero_grad_start = time.time()
+            zero_grad_start = time.time()
             optimizer.zero_grad()
             #print(f"zero grad time:{time.time() - zero_grad_start}")
             #start_backward = time.time()
@@ -130,11 +136,10 @@ def main():
             #start_optimizer = time.time()
             optimizer.step()
             #print(f"oprimizer time:{time.time() - start_optimizer}")
-            #print(f"step time:{time.time() - start_step}")
-            break
+            print(f"step time:{time.time() - start_step}")
 
         avg_loss = np.mean(losses)
-        # wandb.log({"pretrain/loss": avg_loss})
+        wandb.log({"pretrain/loss": avg_loss})
         epoch_time = time.time() - start_time
         print(f"epoch time:{epoch_time}")
         scheduler.step(avg_loss)
